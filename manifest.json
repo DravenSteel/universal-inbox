@@ -1,0 +1,25 @@
+{
+  "name": "My Router",
+  "short_name": "Router",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192.png?text=Icon", 
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "note",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
