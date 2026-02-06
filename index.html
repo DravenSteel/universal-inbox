@@ -5,53 +5,80 @@
   <link rel="manifest" href="manifest.json">
   <title>Router</title>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; }
-    button { padding: 15px; width: 100%; font-size: 18px; margin-top: 20px; background: #4CAF50; color: white; border: none; border-radius: 8px;}
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h2>Saving...</h2>
-  <div id="status">Processing share...</div>
+
+  <div id="setup-view" class="hidden">
+    <h3>First Time Setup</h3>
+    <p>Enter your Google Script URL below:</p>
+    <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/...">
+    <button onclick="saveConfig()">Save Configuration</button>
+  </div>
+
+  <div id="saving-view" class="hidden">
+    <h2>Saving...</h2>
+    <div id="status">Connecting...</div>
+  </div>
 
   <script>
-    // 1. YOUR GOOGLE SCRIPT URL HERE
-    const SCRIPT_URL = "PASTE_YOUR_GOOGLE_SCRIPT_URL_HERE";
+    // CHECK FOR SAVED CONFIG
+    const savedUrl = localStorage.getItem('google_script_url');
 
-    window.onload = async () => {
-      // 2. Parse the URL Parameters (from the Share Sheet)
+    // DOM ELEMENTS
+    const setupView = document.getElementById('setup-view');
+    const savingView = document.getElementById('saving-view');
+    const statusDiv = document.getElementById('status');
+
+    if (!savedUrl) {
+      // MODE: Setup
+      setupView.classList.remove('hidden');
+    } else {
+      // MODE: Operation
+      savingView.classList.remove('hidden');
+      handleShare(savedUrl);
+    }
+
+    function saveConfig() {
+      const inputUrl = document.getElementById('script-url').value;
+      if (inputUrl.includes("script.google.com")) {
+        localStorage.setItem('google_script_url', inputUrl);
+        alert("Saved! Reloading...");
+        location.reload();
+      } else {
+        alert("That doesn't look like a Google Script URL.");
+      }
+    }
+
+    async function handleShare(scriptUrl) {
       const params = new URLSearchParams(window.location.search);
-      
-      // Android shares are messy. Sometimes the URL is in 'text', sometimes in 'url'.
+      // Android shares are tricky. We try all 3 standard fields.
       const sharedUrl = params.get('url') || params.get('text') || "";
       const sharedTitle = params.get('title') || "";
 
       if (!sharedUrl) {
-        document.getElementById('status').innerText = "Waiting for input...";
-        return; 
+        statusDiv.innerText = "Ready for sharing!";
+        return;
       }
 
-      // 3. Send to Google Apps Script
-      // We use 'no-cors' mode because GAS doesn't support proper CORS headers easily,
-      // but the GET request STILL executes successfully on the server.
       try {
-        await fetch(`${SCRIPT_URL}?url=${encodeURIComponent(sharedUrl)}&note=${encodeURIComponent(sharedTitle)}`, {
-          mode: 'no-cors' 
+        // Send data to Google Script
+        await fetch(`${scriptUrl}?url=${encodeURIComponent(sharedUrl)}&title=${encodeURIComponent(sharedTitle)}`, {
+          mode: 'no-cors'
         });
-        
-        document.getElementById('status').innerText = "Saved!";
-        // Optional: Close window after 1 second
-        setTimeout(() => window.close(), 1000);
-        
+        statusDiv.innerText = "Success!";
+        setTimeout(() => window.close(), 1000); // Close window automatically
       } catch (err) {
-        document.getElementById('status').innerText = "Error: " + err.message;
+        statusDiv.innerText = "Error: " + err.message;
       }
-    };
-  </script>
-  
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js');
     }
+    
+    // PWA Requirement
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
   </script>
 </body>
 </html>
