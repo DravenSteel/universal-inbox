@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <title>Router</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; }
+    button { padding: 15px; width: 100%; font-size: 18px; margin-top: 20px; background: #4CAF50; color: white; border: none; border-radius: 8px;}
+  </style>
+</head>
+<body>
+  <h2>Saving...</h2>
+  <div id="status">Processing share...</div>
+
+  <script>
+    // 1. YOUR GOOGLE SCRIPT URL HERE
+    const SCRIPT_URL = "PASTE_YOUR_GOOGLE_SCRIPT_URL_HERE";
+
+    window.onload = async () => {
+      // 2. Parse the URL Parameters (from the Share Sheet)
+      const params = new URLSearchParams(window.location.search);
+      
+      // Android shares are messy. Sometimes the URL is in 'text', sometimes in 'url'.
+      const sharedUrl = params.get('url') || params.get('text') || "";
+      const sharedTitle = params.get('title') || "";
+
+      if (!sharedUrl) {
+        document.getElementById('status').innerText = "Waiting for input...";
+        return; 
+      }
+
+      // 3. Send to Google Apps Script
+      // We use 'no-cors' mode because GAS doesn't support proper CORS headers easily,
+      // but the GET request STILL executes successfully on the server.
+      try {
+        await fetch(`${SCRIPT_URL}?url=${encodeURIComponent(sharedUrl)}&note=${encodeURIComponent(sharedTitle)}`, {
+          mode: 'no-cors' 
+        });
+        
+        document.getElementById('status').innerText = "Saved!";
+        // Optional: Close window after 1 second
+        setTimeout(() => window.close(), 1000);
+        
+      } catch (err) {
+        document.getElementById('status').innerText = "Error: " + err.message;
+      }
+    };
+  </script>
+  
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>
