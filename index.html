@@ -5,36 +5,31 @@
   <link rel="manifest" href="manifest.json">
   <title>Router</title>
   <style>
-    /* Mobile-first styling */
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; text-align: left; background: #f4f4f9; }
-    
-    /* Card design */
+    /* Clean Mobile Styling */
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f4f4f9; }
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     
-    h3 { margin-top: 0; color: #333; }
     label { font-weight: bold; font-size: 12px; color: #666; display: block; margin-top: 15px; }
-    
     input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; font-family: inherit;}
     textarea { resize: vertical; min-height: 80px; }
     
-    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-    button:active { background: #0056b3; }
-    
+    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 20px; }
     .hidden { display: none; }
-    #url-preview { font-size: 11px; color: #999; word-break: break-all; margin-bottom: 15px; }
+    #url-preview { font-size: 11px; color: #999; word-break: break-all; margin-bottom: 5px; }
   </style>
 </head>
 <body>
 
   <div id="setup-view" class="hidden card">
     <h3>App Setup</h3>
-    <p>Paste your Google Script URL to link this app to your spreadsheet.</p>
+    <p>Paste your Google Script URL:</p>
     <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/...">
     <button onclick="saveConfig()">Save & Connect</button>
   </div>
 
   <div id="form-view" class="hidden card">
     <h3>Save Item</h3>
+    
     <div id="url-preview"></div>
 
     <label>Category</label>
@@ -46,21 +41,24 @@
       <option value="Idea">💡 Idea</option>
     </select>
 
-    <label>Note / Title</label>
-    <textarea id="note"></textarea>
+    <label>Link Name</label>
+    <input type="text" id="title" placeholder="Page Title">
+
+    <label>My Notes</label>
+    <textarea id="note" placeholder="Size, color, thoughts..."></textarea>
 
     <button id="send-btn" onclick="sendData()">Save to Sheet</button>
     <div id="status" style="text-align:center; margin-top:10px; color:#666;"></div>
   </div>
 
   <script>
-    // --- LOGIC ---
     const savedUrl = localStorage.getItem('google_script_url');
-    let currentShareUrl = ""; // Store the URL to send later
+    let currentShareUrl = ""; 
 
     // DOM Elements
     const setupView = document.getElementById('setup-view');
     const formView = document.getElementById('form-view');
+    const titleInput = document.getElementById('title'); // New Title Input
     const noteInput = document.getElementById('note');
     const urlPreview = document.getElementById('url-preview');
     const statusDiv = document.getElementById('status');
@@ -76,46 +74,45 @@
     // 2. PARSE INCOMING DATA
     function initializeShare() {
       const params = new URLSearchParams(window.location.search);
-      // Android "Share" sends URL in 'text' or 'url', and Page Title in 'title'
       const sharedUrl = params.get('url') || params.get('text') || "";
       const sharedTitle = params.get('title') || "";
 
       if (!sharedUrl) {
-        // If opened directly without sharing, just show the form empty
         formView.classList.remove('hidden');
         urlPreview.innerText = "No URL detected (Direct open)";
         return;
       }
 
-      // Pre-fill the data
       currentShareUrl = sharedUrl;
       formView.classList.remove('hidden');
       urlPreview.innerText = sharedUrl;
-      noteInput.value = sharedTitle; // Put the page title in the note box for editing
+      
+      // PRE-FILL LOGIC:
+      // Put the page title into the "Link Name" box
+      titleInput.value = sharedTitle; 
+      // Leave the "Note" box empty for you
+      noteInput.value = ""; 
     }
 
     // 3. SEND DATA
     async function sendData() {
       const category = document.getElementById('category').value;
+      const title = titleInput.value;
       const note = noteInput.value;
 
       sendBtn.disabled = true;
       sendBtn.innerText = "Saving...";
 
       try {
-        // Construct the GET request
-        // We use 'no-cors' mode which is standard for GAS web apps
-        await fetch(`${savedUrl}?url=${encodeURIComponent(currentShareUrl)}&category=${encodeURIComponent(category)}&note=${encodeURIComponent(note)}`, {
+        // Send Title AND Note separately
+        await fetch(`${savedUrl}?url=${encodeURIComponent(currentShareUrl)}&category=${encodeURIComponent(category)}&title=${encodeURIComponent(title)}&note=${encodeURIComponent(note)}`, {
           mode: 'no-cors'
         });
 
-        // UI Feedback
         sendBtn.innerText = "Saved!";
         sendBtn.style.background = "#28a745";
-        statusDiv.innerText = "Closing in 1s...";
-        
-        // Auto-close after 1 second
-        setTimeout(() => window.close(), 1200);
+        statusDiv.innerText = "Closing...";
+        setTimeout(() => window.close(), 1000);
 
       } catch (err) {
         sendBtn.disabled = false;
@@ -124,18 +121,16 @@
       }
     }
 
-    // 4. SAVE CONFIG (Setup Mode)
     function saveConfig() {
       const inputUrl = document.getElementById('script-url').value;
       if (inputUrl.includes("script.google.com")) {
         localStorage.setItem('google_script_url', inputUrl);
         location.reload();
       } else {
-        alert("Invalid Google Script URL");
+        alert("Invalid URL");
       }
     }
     
-    // Service Worker for PWA
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
   </script>
 </body>
