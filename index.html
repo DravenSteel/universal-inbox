@@ -3,52 +3,66 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="manifest" href="manifest.json">
-  <title>Router</title>
+  <title>Life Library</title>
   <style>
-    /* Clean Mobile Styling */
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f4f4f9; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
     
-    label { font-weight: bold; font-size: 12px; color: #666; display: block; margin-top: 15px; }
-    input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; font-family: inherit;}
-    textarea { resize: vertical; min-height: 80px; }
+    /* Card Design */
+    .card { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
     
-    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 20px; }
+    h2 { margin-top: 0; font-size: 22px; color: #1a1a1a; margin-bottom: 20px; }
+    label { font-weight: 600; font-size: 13px; color: #666; display: block; margin-top: 16px; margin-bottom: 6px; }
+    
+    input, select, textarea { width: 100%; padding: 14px; box-sizing: border-box; border: 1px solid #e1e4e8; border-radius: 10px; font-size: 16px; font-family: inherit; background: #fafafa; transition: border 0.2s; }
+    input:focus, select:focus, textarea:focus { border-color: #007bff; outline: none; background: #fff; }
+    
+    textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+    
+    button { padding: 16px; width: 100%; background: #222; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; margin-top: 24px; cursor: pointer; transition: opacity 0.2s; }
+    button:active { opacity: 0.8; }
+    
     .hidden { display: none; }
-    #url-preview { font-size: 11px; color: #999; word-break: break-all; margin-bottom: 5px; }
+    
+    #url-preview { font-size: 12px; color: #888; background: #f1f3f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; word-break: break-all; }
+    
+    /* Setup Screen Styling */
+    .setup-box { text-align: center; }
+    .setup-box input { margin-bottom: 15px; }
   </style>
 </head>
 <body>
 
-  <div id="setup-view" class="hidden card">
-    <h3>App Setup</h3>
-    <p>Paste your Google Script URL:</p>
+  <div id="setup-view" class="hidden card setup-box">
+    <h2>Connect Library</h2>
+    <p style="color:#666; margin-bottom:20px;">Paste your Google Script URL to link this app to your Life Library.</p>
     <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/...">
-    <button onclick="saveConfig()">Save & Connect</button>
+    <button onclick="saveConfig()">Connect</button>
   </div>
 
   <div id="form-view" class="hidden card">
-    <h3>Save Item</h3>
+    <h2 id="page-heading">Add Item</h2>
     
-    <div id="url-preview"></div>
+    <div id="link-section">
+      <div id="url-preview"></div>
+      <label>Title</label>
+      <input type="text" id="title" placeholder="Page Title">
+    </div>
 
     <label>Category</label>
     <select id="category">
-      <option value="Buy">🛒 Buy</option>
-      <option value="Read">📚 Read</option>
-      <option value="Watch">🎬 Watch</option>
-      <option value="Listen">🎧 Listen</option>
+      <option value="Inbox">📥 Inbox</option>
       <option value="Idea">💡 Idea</option>
+      <option value="Buy">🛒 To Buy</option>
+      <option value="Read">📚 To Read</option>
+      <option value="Watch">🎬 To Watch</option>
+      <option value="Listen">🎧 To Listen</option>
     </select>
 
-    <label>Link Name</label>
-    <input type="text" id="title" placeholder="Page Title">
+    <label id="note-label">Notes</label>
+    <textarea id="note" placeholder="Add details..."></textarea>
 
-    <label>My Notes</label>
-    <textarea id="note" placeholder="Size, color, thoughts..."></textarea>
-
-    <button id="send-btn" onclick="sendData()">Save to Sheet</button>
-    <div id="status" style="text-align:center; margin-top:10px; color:#666;"></div>
+    <button id="send-btn" onclick="sendData()">Save to Library</button>
+    <div id="status" style="text-align:center; margin-top:15px; color:#666; font-size: 14px;"></div>
   </div>
 
   <script>
@@ -58,79 +72,107 @@
     // DOM Elements
     const setupView = document.getElementById('setup-view');
     const formView = document.getElementById('form-view');
-    const titleInput = document.getElementById('title'); // New Title Input
+    const linkSection = document.getElementById('link-section');
+    const pageHeading = document.getElementById('page-heading');
+    const noteLabel = document.getElementById('note-label');
+    
+    const titleInput = document.getElementById('title');
+    const categoryInput = document.getElementById('category');
     const noteInput = document.getElementById('note');
     const urlPreview = document.getElementById('url-preview');
-    const statusDiv = document.getElementById('status');
     const sendBtn = document.getElementById('send-btn');
+    const statusDiv = document.getElementById('status');
 
-    // 1. INITIALIZE
+    // 1. INITIALIZE APP
     if (!savedUrl) {
       setupView.classList.remove('hidden');
     } else {
-      initializeShare();
+      initialize();
     }
 
-    // 2. PARSE INCOMING DATA
-    function initializeShare() {
+    // 2. DETECT CONTEXT (Direct vs Share)
+    function initialize() {
       const params = new URLSearchParams(window.location.search);
       const sharedUrl = params.get('url') || params.get('text') || "";
       const sharedTitle = params.get('title') || "";
 
-      if (!sharedUrl) {
-        formView.classList.remove('hidden');
-        urlPreview.innerText = "No URL detected (Direct open)";
-        return;
-      }
-
-      currentShareUrl = sharedUrl;
       formView.classList.remove('hidden');
-      urlPreview.innerText = sharedUrl;
-      
-      // PRE-FILL LOGIC:
-      // Put the page title into the "Link Name" box
-      titleInput.value = sharedTitle; 
-      // Leave the "Note" box empty for you
-      noteInput.value = ""; 
+
+      if (!sharedUrl) {
+        // --- MODE: DIRECT OPEN (IDEA) ---
+        pageHeading.innerText = "New Idea";
+        linkSection.style.display = 'none';
+        
+        categoryInput.value = "Idea";
+        noteLabel.innerText = "What's on your mind?";
+        noteInput.placeholder = "Type your idea here...";
+        noteInput.focus();
+        
+        currentShareUrl = "Direct Entry"; // Placeholder so DB isn't empty
+        
+      } else {
+        // --- MODE: SHARE TARGET (LINK) ---
+        pageHeading.innerText = "Save to Library";
+        linkSection.style.display = 'block';
+        
+        categoryInput.value = "Inbox";
+        noteLabel.innerText = "Notes";
+        
+        currentShareUrl = sharedUrl;
+        urlPreview.innerText = sharedUrl;
+        titleInput.value = sharedTitle;
+      }
     }
 
-    // 3. SEND DATA
+    // 3. SEND DATA TO GOOGLE
     async function sendData() {
-      const category = document.getElementById('category').value;
+      const category = categoryInput.value;
       const title = titleInput.value;
       const note = noteInput.value;
 
       sendBtn.disabled = true;
       sendBtn.innerText = "Saving...";
+      sendBtn.style.opacity = "0.7";
 
       try {
-        // Send Title AND Note separately
+        // We use 'no-cors' mode standard for GAS web apps
         await fetch(`${savedUrl}?url=${encodeURIComponent(currentShareUrl)}&category=${encodeURIComponent(category)}&title=${encodeURIComponent(title)}&note=${encodeURIComponent(note)}`, {
           mode: 'no-cors'
         });
 
+        // Success UI
         sendBtn.innerText = "Saved!";
         sendBtn.style.background = "#28a745";
-        statusDiv.innerText = "Closing...";
-        setTimeout(() => window.close(), 1000);
+        sendBtn.style.opacity = "1";
+        statusDiv.innerText = "Done";
+        
+        // Auto-close logic
+        setTimeout(() => {
+           // If direct mode, we could reload to allow another entry, 
+           // but closing is standard behavior for a 'capture' tool.
+           window.close(); 
+        }, 800);
 
       } catch (err) {
         sendBtn.disabled = false;
         sendBtn.innerText = "Retry";
+        sendBtn.style.opacity = "1";
         statusDiv.innerText = "Error: " + err.message;
       }
     }
 
+    // 4. SAVE CONFIG
     function saveConfig() {
       const inputUrl = document.getElementById('script-url').value;
       if (inputUrl.includes("script.google.com")) {
         localStorage.setItem('google_script_url', inputUrl);
         location.reload();
       } else {
-        alert("Invalid URL");
+        alert("Please enter a valid Google Script URL");
       }
     }
     
+    // Register PWA Service Worker
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
   </script>
 </body>
