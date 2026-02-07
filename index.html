@@ -5,79 +5,137 @@
   <link rel="manifest" href="manifest.json">
   <title>Router</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; text-align: center; }
-    input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+    /* Mobile-first styling */
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; text-align: left; background: #f4f4f9; }
+    
+    /* Card design */
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    
+    h3 { margin-top: 0; color: #333; }
+    label { font-weight: bold; font-size: 12px; color: #666; display: block; margin-top: 15px; }
+    
+    input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; font-family: inherit;}
+    textarea { resize: vertical; min-height: 80px; }
+    
+    button { padding: 15px; width: 100%; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+    button:active { background: #0056b3; }
+    
     .hidden { display: none; }
+    #url-preview { font-size: 11px; color: #999; word-break: break-all; margin-bottom: 15px; }
   </style>
 </head>
 <body>
 
-  <div id="setup-view" class="hidden">
-    <h3>First Time Setup</h3>
-    <p>Enter your Google Script URL below:</p>
+  <div id="setup-view" class="hidden card">
+    <h3>App Setup</h3>
+    <p>Paste your Google Script URL to link this app to your spreadsheet.</p>
     <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/...">
-    <button onclick="saveConfig()">Save Configuration</button>
+    <button onclick="saveConfig()">Save & Connect</button>
   </div>
 
-  <div id="saving-view" class="hidden">
-    <h2>Saving...</h2>
-    <div id="status">Connecting...</div>
+  <div id="form-view" class="hidden card">
+    <h3>Save Item</h3>
+    <div id="url-preview"></div>
+
+    <label>Category</label>
+    <select id="category">
+      <option value="Inbox">📥 Inbox</option>
+      <option value="Buy">🛒 To Buy</option>
+      <option value="Read">📚 To Read</option>
+      <option value="Watch">🎬 To Watch</option>
+      <option value="Idea">💡 Idea</option>
+    </select>
+
+    <label>Note / Title</label>
+    <textarea id="note"></textarea>
+
+    <button id="send-btn" onclick="sendData()">Save to Sheet</button>
+    <div id="status" style="text-align:center; margin-top:10px; color:#666;"></div>
   </div>
 
   <script>
-    // CHECK FOR SAVED CONFIG
+    // --- LOGIC ---
     const savedUrl = localStorage.getItem('google_script_url');
+    let currentShareUrl = ""; // Store the URL to send later
 
-    // DOM ELEMENTS
+    // DOM Elements
     const setupView = document.getElementById('setup-view');
-    const savingView = document.getElementById('saving-view');
+    const formView = document.getElementById('form-view');
+    const noteInput = document.getElementById('note');
+    const urlPreview = document.getElementById('url-preview');
     const statusDiv = document.getElementById('status');
+    const sendBtn = document.getElementById('send-btn');
 
+    // 1. INITIALIZE
     if (!savedUrl) {
-      // MODE: Setup
       setupView.classList.remove('hidden');
     } else {
-      // MODE: Operation
-      savingView.classList.remove('hidden');
-      handleShare(savedUrl);
+      initializeShare();
     }
 
-    function saveConfig() {
-      const inputUrl = document.getElementById('script-url').value;
-      if (inputUrl.includes("script.google.com")) {
-        localStorage.setItem('google_script_url', inputUrl);
-        alert("Saved! Reloading...");
-        location.reload();
-      } else {
-        alert("That doesn't look like a Google Script URL.");
-      }
-    }
-
-    async function handleShare(scriptUrl) {
+    // 2. PARSE INCOMING DATA
+    function initializeShare() {
       const params = new URLSearchParams(window.location.search);
-      // Android shares are tricky. We try all 3 standard fields.
+      // Android "Share" sends URL in 'text' or 'url', and Page Title in 'title'
       const sharedUrl = params.get('url') || params.get('text') || "";
       const sharedTitle = params.get('title') || "";
 
       if (!sharedUrl) {
-        statusDiv.innerText = "Ready for sharing!";
+        // If opened directly without sharing, just show the form empty
+        formView.classList.remove('hidden');
+        urlPreview.innerText = "No URL detected (Direct open)";
         return;
       }
 
+      // Pre-fill the data
+      currentShareUrl = sharedUrl;
+      formView.classList.remove('hidden');
+      urlPreview.innerText = sharedUrl;
+      noteInput.value = sharedTitle; // Put the page title in the note box for editing
+    }
+
+    // 3. SEND DATA
+    async function sendData() {
+      const category = document.getElementById('category').value;
+      const note = noteInput.value;
+
+      sendBtn.disabled = true;
+      sendBtn.innerText = "Saving...";
+
       try {
-        // Send data to Google Script
-        await fetch(`${scriptUrl}?url=${encodeURIComponent(sharedUrl)}&title=${encodeURIComponent(sharedTitle)}`, {
+        // Construct the GET request
+        // We use 'no-cors' mode which is standard for GAS web apps
+        await fetch(`${savedUrl}?url=${encodeURIComponent(currentShareUrl)}&category=${encodeURIComponent(category)}&note=${encodeURIComponent(note)}`, {
           mode: 'no-cors'
         });
-        statusDiv.innerText = "Success!";
-        setTimeout(() => window.close(), 1000); // Close window automatically
+
+        // UI Feedback
+        sendBtn.innerText = "Saved!";
+        sendBtn.style.background = "#28a745";
+        statusDiv.innerText = "Closing in 1s...";
+        
+        // Auto-close after 1 second
+        setTimeout(() => window.close(), 1200);
+
       } catch (err) {
+        sendBtn.disabled = false;
+        sendBtn.innerText = "Retry";
         statusDiv.innerText = "Error: " + err.message;
       }
     }
+
+    // 4. SAVE CONFIG (Setup Mode)
+    function saveConfig() {
+      const inputUrl = document.getElementById('script-url').value;
+      if (inputUrl.includes("script.google.com")) {
+        localStorage.setItem('google_script_url', inputUrl);
+        location.reload();
+      } else {
+        alert("Invalid Google Script URL");
+      }
+    }
     
-    // PWA Requirement
+    // Service Worker for PWA
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
   </script>
 </body>
