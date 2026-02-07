@@ -1,14 +1,14 @@
 {
-  "name": "My Secure Router",
-  "short_name": "Router",
+  "name": "Life Library",
+  "short_name": "Library",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#4CAF50",
   "icons": [
     {
-      "src": "https://upload.wikimedia.org/wikipedia/commons/c/ca/AngularJS_logo.svg",
-      "sizes": "192x192",
+      "src": "./icon.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ],
