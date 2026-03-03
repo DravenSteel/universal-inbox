@@ -1,7 +1,7 @@
 {
   "name": "Life Library",
   "short_name": "Library",
-  "start_url": "./index.html",
+  "start_url": "./home.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4CAF50",
@@ -13,7 +13,7 @@
     }
   ],
   "share_target": {
-    "action": "./index.html",
+    "action": "./home.html",
     "method": "GET",
     "enctype": "application/x-www-form-urlencoded",
     "params": {
